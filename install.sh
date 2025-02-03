@@ -243,7 +243,7 @@ upgrade_python() {
                     ;;
                 "11"|"12")
                     apt update
-                    apt install -y python3.9 python3.9-dev python3.9-venv
+                    apt install -y python3
                     ;;
             esac
             ;;
@@ -525,7 +525,7 @@ if [ "$COWRIE_INSTALLED" = "false" ]; then
     echo "配置 Cowrie..."
     cp etc/cowrie.cfg.dist etc/cowrie.cfg
     sed -i 's/hostname = svr04/hostname = debian-s31343/' etc/cowrie.cfg
-    sed -i 's/^#listen_port=2222/listen_port=2222/' etc/cowrie.cfg
+    sed -i 's/^#listen_port=22/listen_port=22/' etc/cowrie.cfg
     sed -i 's/^#download_limit_size=10485760/download_limit_size=1048576/' etc/cowrie.cfg
     
     # 创建日志目录
@@ -753,7 +753,8 @@ EOF
         echo "开始设置防火墙规则..."
         command -v ufw >/dev/null 2>&1 || {
             echo "未检测到 UFW 防火墙"
-            return 0
+            apt install -y ufw
+            # return 0
         }
         
         echo "检测到 UFW 防火墙..."
@@ -796,17 +797,17 @@ EOF
         fi
         
         # 检查蜜罐端口规则
-        check_ufw_rule "2222" "Cowrie"
+        check_ufw_rule "22" "Cowrie"
         local honeypot_status=$?
         if [ "$honeypot_status" -eq 1 ]; then
             echo "添加蜜罐端口到防火墙规则..."
-            ufw allow 2222/tcp comment 'Cowrie Honeypot'
+            ufw allow 22/tcp comment 'Cowrie Honeypot'
         elif [ "$honeypot_status" -eq 2 ]; then
-            echo "警告: 端口 2222 已有其他规则，可能会影响蜜罐功能"
+            echo "警告: 端口 22 已有其他规则，可能会影响蜜罐功能"
             read -p "是否添加新规则？[Y/n]: " -r ADD_HONEYPOT_RULE
             ADD_HONEYPOT_RULE=${ADD_HONEYPOT_RULE:-y}
             if [[ $ADD_HONEYPOT_RULE =~ ^[Yy]$ ]]; then
-                ufw allow 2222/tcp comment 'Cowrie Honeypot'
+                ufw allow 22/tcp comment 'Cowrie Honeypot'
             fi
         else
             echo "蜜罐端口规则已配置"
@@ -823,7 +824,7 @@ EOF
             else
                 print_warning "警告：防火墙未启用，请确保手动配置以下规则："
                 echo "- SSH 端口: $NEW_SSH_PORT/tcp"
-                echo "- 蜜罐端口: 2222/tcp"
+                echo "- 蜜罐端口: 22/tcp"
                 [ "$NEW_SSH_PORT" != "$CURRENT_SSH_PORT" ] && [ "$KEEP_OLD_PORT" != "n" ] && echo "- 原 SSH 端口: $CURRENT_SSH_PORT/tcp"
             fi
         fi
@@ -896,19 +897,19 @@ if ! command -v ufw >/dev/null 2>&1; then
     echo "安装和配置方法："
     echo "apt install ufw"
     echo "ufw allow ${NEW_SSH_PORT:-22}/tcp  # 开放 SSH 端口"
-    echo "ufw allow 2222/tcp                 # 开放蜜罐端口"
+    echo "ufw allow 22/tcp                 # 开放蜜罐端口"
     echo "ufw enable                         # 启用防火墙"
 else
     echo "防火墙状态："
     if ufw status | grep -q "Status: active"; then
         echo "- UFW 已启用"
         echo "- SSH 端口状态: $(ufw status | grep -E "$NEW_SSH_PORT/tcp" || echo "未开放")"
-        echo "- 蜜罐端口状态: $(ufw status | grep "2222/tcp" || echo "未开放")"
+        echo "- 蜜罐端口状态: $(ufw status | grep "22/tcp" || echo "未开放")"
     else
         echo "警告：UFW 防火墙已安装但未启用"
         echo "建议执行以下命令配置防火墙："
         echo "ufw allow ${NEW_SSH_PORT:-22}/tcp"
-        echo "ufw allow 2222/tcp"
+        echo "ufw allow 22/tcp"
         echo "ufw enable"
     fi
 fi
@@ -981,7 +982,7 @@ fi
 [ -n "$TEMP_KEY_FILE" ] && print_info "新生成的私钥位置: $TEMP_KEY_FILE"
 
 print_header "蜜罐信息"
-print_info "Cowrie 端口: 2222"
+print_info "Cowrie 端口: 22"
 print_info "安装目录: $COWRIE_INSTALL_DIR"
 print_info "日志位置: $COWRIE_INSTALL_DIR/var/log/cowrie/"
 if systemctl is-active --quiet cowrie; then
@@ -1018,7 +1019,7 @@ if command -v ufw >/dev/null 2>&1; then
     fi
     
     # 检查必要端口
-    for port in "$FINAL_SSH_PORT" "2222"; do
+    for port in "$FINAL_SSH_PORT" "22"; do
         if ! ufw status | grep -q "^$port/tcp"; then
             print_warning "端口 $port 未在防火墙中配置"
         fi
